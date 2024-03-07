@@ -1,6 +1,7 @@
 {
   pkgs,
   outPath,
+  maxDepth ? "5",
   commandPrefix ? "pnpm",
 }: let
   scriptName = "set-vercel-env";
@@ -32,6 +33,12 @@ in
       echo "3. Development: Connect to local development instance."
     }
 
+    setenv() {
+      # Proceed with setting the environment based on the provided argument
+      echo "Setting environment to: $1"
+      ${cmd} env pull --environment=$1 ${outPath}
+    }
+
     # Check if out path is set.
     if [ -z "${outPath}" ]; then
       echo "outPath is not set in nix configuration!"
@@ -55,7 +62,27 @@ in
       exit 1
     fi
 
-    # Proceed with setting the environment based on the provided argument
-    echo "Setting environment to: $environment"
-    ${cmd} env pull --environment=$environment ${outPath}
+    targetDir=$(dirname "${outPath}")
+
+    i=${maxDepth}
+    found=0
+
+    while [ $i -gt 0 ]; do
+      if [ -d "$targetDir" ]; then
+        found=1
+        break
+      else
+        cd ..
+      fi
+
+      ((i--))
+    done
+
+    if [ $found -eq 1 ]; then
+      # Proceed with setting the environment based on the provided argument
+      echo "Setting environment to: $environment"
+      ${cmd} env pull --environment=$environment ${outPath}
+    else
+      echo "Could not find a directory with target directory for .env file: $targetDir! Searched up ${maxDepth} directories!"
+    fi
   ''
